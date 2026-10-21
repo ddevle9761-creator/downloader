@@ -1,1 +1,4 @@
 *Videos/
+.idea/
+__pycache__/
+.gitignore
