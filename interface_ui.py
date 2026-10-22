@@ -1,11 +1,12 @@
 from PySide6.QtWidgets import QApplication, QPushButton, QLineEdit, QListWidget, QListWidgetItem, QHBoxLayout
-from PySide6.QtCore import Qt, QSize, QUrl, QThread
+from PySide6.QtCore import Qt, QSize, QUrl
 from PySide6 import QtWidgets, QtCore
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PySide6.QtMultimediaWidgets import QVideoWidget
 from PySide6.QtWidgets import QMessageBox, QProgressBar
 import sys
 from pathlib import Path
+import time
 
 from service_down import ServiceDown
 
@@ -14,12 +15,14 @@ from service_down import ServiceDown
 class Dash(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Dash")
+        self.setWindowTitle("devle")
 
         self.setMaximumSize(1000, 600)
         self.setMinimumSize(1000, 600)
         self.text_edit = None
         self.btn = None
+        self.download_service = None
+        self._close_after_download = False
         self.setup_ui()
         self.connexion()
         self.charger_les_video()
@@ -79,10 +82,13 @@ class Dash(QtWidgets.QWidget):
         self.progress.setMaximum(100)
         self.progress.setValue(0)
         layout_nav = QtWidgets.QHBoxLayout()
-        self.BtnStop = QPushButton("stop")
+        self.BtnStop = QPushButton("Stop")
         self.BtnStart = QPushButton("Start")
+        self.BtnRestart = QPushButton("Restart")
+        layout_nav.addWidget(self.BtnRestart)
         layout_nav.addWidget(self.BtnStart)
         layout_nav.addWidget(self.BtnStop)
+
 
 
 
@@ -94,7 +100,14 @@ class Dash(QtWidgets.QWidget):
 
     def connexion(self):
         self.btn.clicked.connect(self.set_text)
+        self.btnAnuler.clicked.connect(self.annuler_telechargement)
         self.listes.itemClicked.connect(self.recuperer_video)
+        self.btnAnuler.setEnabled(False)
+        self.BtnStop.clicked.connect(self.stop_video)
+        self.BtnStart.clicked.connect(self.start_video)
+        self.BtnRestart.clicked.connect(self.restart_video)
+
+        #self.la_duration()
 
 
 
@@ -105,36 +118,59 @@ class Dash(QtWidgets.QWidget):
         return text
 
 
-    def increment_progress(self):
-        value = self.progress.value()
-        if value < 100:
-            self.progress.setValue(value + 100)
-
-
-
-
     def set_text(self):
         text = self.get_text()
-        if text:
-            try:
-                tele = ServiceDown(str(text))
-                if tele.__check_text__():
-                    QMessageBox.information(self, "Télèchargement", "Télèchargement en cours")
+        if not text or (self.download_service and self.download_service.is_running()):
+            return
 
-                    self.increment_progress()
-                    tele.start()
+        tele = ServiceDown(str(text), self)
+        tele.progress.connect(self.progress.setValue)
+        tele.finished.connect(self._telechargement_termine)
+        try:
+            tele.start()
+        except (ValueError, RuntimeError) as exc:
+            QMessageBox.warning(self, "Erreur", str(exc))
+            return
 
+        self.download_service = tele
+        self.progress.setValue(0)
+        self.btn.setEnabled(False)
+        self.btnAnuler.setEnabled(True)
+        self.text_edit.clear()
 
-                    self.text_edit.clear()
-                    QMessageBox.information(self, "Télèchargement", "Télèchargement terminée")
+    def annuler_telechargement(self):
+        if self.download_service and self.download_service.is_running():
+            self.download_service.stop()
+            self.btnAnuler.setEnabled(False)
 
-            except Exception as e:
-                QMessageBox.warning(self, "error", f"{e}")
-                self.text_edit.clear()
+    def _telechargement_termine(self, success, cancelled, error_message):
+        self.download_service = None
+        self.btn.setEnabled(True)
+        self.btnAnuler.setEnabled(False)
+
+        if success:
+            self.progress.setValue(100)
+            QMessageBox.information(self, "Téléchargement", "Téléchargement terminé")
+        elif cancelled:
+            QMessageBox.information(self, "Téléchargement", "Téléchargement annulé")
+        else:
+            QMessageBox.warning(self, "Erreur", error_message or "Le téléchargement a échoué")
+
+        if self._close_after_download:
+            self._close_after_download = False
+            self.close()
+
+    def closeEvent(self, event):
+        if self.download_service and self.download_service.is_running():
+            self._close_after_download = True
+            self.download_service.stop()
+            event.ignore()
+            return
+        super().closeEvent(event)
 
     def charger_les_video(self):
         extention = (".mp4", ".avi", ".mkv", ".flv", ".webm")
-        path = Path("Videos")
+        path = Path(__file__).resolve().parent / "Videos"
         if path.is_dir():
 
             for file in path.iterdir():
@@ -149,6 +185,33 @@ class Dash(QtWidgets.QWidget):
         video_url = QUrl.fromLocalFile(fill_path)
         self.player.setSource(video_url)
         self.player.play()
+
+
+    def start_video(self):
+        if self.player.isPlaying():
+            return
+        self.player.play()
+
+
+    def stop_video(self):
+        if self.player.isPlaying():
+            self.player.pause()
+
+    def la_duration(self):
+        if self.player.isPlaying(): pass
+        duration = self.player.duration()
+        print(duration)
+
+    def restart_video(self):
+        if self.player.isPlaying():
+            self.player.stop()
+            self.player.play()
+
+
+
+
+
+
 
 
 
