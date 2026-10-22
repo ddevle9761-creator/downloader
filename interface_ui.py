@@ -1,5 +1,5 @@
-from PySide6.QtWidgets import QApplication, QPushButton, QLineEdit, QListWidget, QListWidgetItem
-from PySide6.QtCore import Qt, QSize, QUrl
+from PySide6.QtWidgets import QApplication, QPushButton, QLineEdit, QListWidget, QListWidgetItem, QHBoxLayout
+from PySide6.QtCore import Qt, QSize, QUrl, QThread
 from PySide6 import QtWidgets, QtCore
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PySide6.QtMultimediaWidgets import QVideoWidget
@@ -15,7 +15,9 @@ class Dash(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Dash")
-        self.resize(1000, 600)
+
+        self.setMaximumSize(1000, 600)
+        self.setMinimumSize(1000, 600)
         self.text_edit = None
         self.btn = None
         self.setup_ui()
@@ -25,8 +27,15 @@ class Dash(QtWidgets.QWidget):
 
     def setup_ui(self):
         vertical_layout = QtWidgets.QHBoxLayout(self)
+        vertical_layout.setStretch(0, 4)
+        vertical_layout.setStretch(1, 4)
+        vertical_layout.setSpacing(10)
         layout_video = QtWidgets.QVBoxLayout()
         layout_widget = QtWidgets.QVBoxLayout()
+        layout_widget.setSpacing(10)
+        layout_video.setSpacing(10)
+        layout_widget.setGeometry(QtCore.QRect(0, 0, 600, 500))
+        layout_video.setGeometry(QtCore.QRect(0, 0, 700, 600))
 
         vertical_layout.addLayout(layout_widget)
         vertical_layout.addLayout(layout_video)
@@ -35,7 +44,6 @@ class Dash(QtWidgets.QWidget):
 
         self.vodeo_widget = QVideoWidget()
 
-        self.vodeo_widget.setMinimumSize(QtCore.QSize(400, 300))
         self.player = QMediaPlayer()
         self.audio_output = QAudioOutput()
         self.player.setAudioOutput(self.audio_output)
@@ -48,23 +56,41 @@ class Dash(QtWidgets.QWidget):
         layout_widget.addWidget(self.text_edit)
 
         self.btn = QPushButton("Telecharger")
-        self.btn.setMaximumSize(QtCore.QSize(110, 50))
-        layout_widget.addWidget(self.btn)
+        self.btnAnuler = QPushButton("Anuler")
+
+        self.btn.setMaximumSize(QtCore.QSize(300, 50))
+        self.btnAnuler.setMaximumSize(QtCore.QSize(300, 50))
+
+        layout_top_btn = QHBoxLayout()
+        layout_top_btn.minimumHeightForWidth(100)
+        layout_top_btn.addWidget(self.btn)
+        layout_top_btn.addWidget(self.btnAnuler)
+        layout_widget.addLayout(layout_top_btn, QtCore.Qt.AlignmentFlag.AlignTop)
 
         self.listes = QListWidget()
         self.listes.setMaximumSize(QtCore.QSize(700, 600))
+        self.listes.setMinimumSize(QtCore.QSize(700, 600))
+        title = QtWidgets.QLabel("<h1 style='color:cyan; text-align:center'> La liste des videos </h1>".title())
+        layout_widget.addWidget(title)
         layout_widget.addWidget(self.listes, 1)
 
         self.progress = QProgressBar()
-        self.progress.setMinimum(0)
+
         self.progress.setMaximum(100)
         self.progress.setValue(0)
-        layout_widget.addWidget(self.progress)
+        layout_nav = QtWidgets.QHBoxLayout()
+        self.BtnStop = QPushButton("stop")
+        self.BtnStart = QPushButton("Start")
+        layout_nav.addWidget(self.BtnStart)
+        layout_nav.addWidget(self.BtnStop)
 
 
 
         layout_video.addWidget(self.vodeo_widget)
+        layout_video.addLayout(layout_nav)
         layout_video.addWidget(self.progress)
+
+
 
     def connexion(self):
         self.btn.clicked.connect(self.set_text)
